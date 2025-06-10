@@ -194,5 +194,5 @@ cython_debug/
 .cursorindexingignore
 
 # My stuff
-random.py
+randoms.py
 old/
