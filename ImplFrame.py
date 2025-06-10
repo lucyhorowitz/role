@@ -2,6 +2,7 @@ from multiset import *
 from translate import *
 from drhagen.szudzik import *
 import itertools
+import math
 
 class ImplicationSpace:
     """
@@ -23,7 +24,7 @@ class ImplicationSpace:
     
 
 class ImplicationFrame(ImplicationSpace):
-    def __init__(self, num_bearers, implications, containment=True, reflexivity=True):
+    def __init__(self, num_bearers, implications, containment=False, reflexivity=True):
         """
         Initialize an implication frame.
 
@@ -59,10 +60,17 @@ class ImplicationFrame(ImplicationSpace):
     def is_by_reflexivity(self, candidate):
         """
         return True if the implication holds by reflexivity rule.
+        A good fact is that the reflexive indices are of the form `n^2 + (2 * n)`.
         """
         if isinstance(candidate, tuple):
-            return self.reflexivity and candidate[0] == candidate[1]
-        raise TypeError("candidate must be a pair of indices")
+            return self.reflexivity and candidate[0] == candidate[1] and candidate not in self.implications
+        if isinstance(candidate, int):
+            if self.reflexivity and candidate not in self.implications:
+                k = candidate
+                s = math.isqrt(k + 1)
+                return s*s == k + 1 and s - 1 >= 0
+        if isinstance(candidate, str):
+            return self.is_by_reflexivity(implication_to_pair(candidate,self.num_bearers))
 
     def is_by_containment(self, candidate):
         """
@@ -73,7 +81,18 @@ class ImplicationFrame(ImplicationSpace):
             tup1 = index_to_tuple(candidate[1], self.num_bearers)
             # non-empty multiset intersection
             return self.containment and multi_intersection(tup0, tup1) != (0,) * self.num_bearers
-        raise TypeError("candidate must be a pair of indices")
+        if isinstance(candidate, str):
+            return self.is_by_containment(implication_to_pair(candidate,self.num_bearers))
+        if isinstance(candidate, int):
+            return self.is_by_containment(cindex_to_pair(candidate))
+
+    def RSR_single(self, candidate):
+        if isinstance(candidate, int):
+            return
+        if isinstance(candidate, tuple):
+            return
+        if isinstance(candidate, str):
+            return
 
     def pretty(self, bound = 2, padding: int = 0) -> str:
         """
