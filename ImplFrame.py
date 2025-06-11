@@ -89,8 +89,37 @@ class ImplicationFrame(ImplicationSpace):
     def otimes(self, rsr1, rsr2):
         exp_rsr1, imp_rsr1 = rsr1
         exp_rsr2, imp_rsr2 = rsr2
+        
+        new_exp = self.add_sets(exp_rsr1, exp_rsr2)
 
-        def add_sets(set1, set2):
+        if not imp_rsr1 and not imp_rsr2:
+            return new_exp, set()
+        elif not imp_rsr1:
+            temp_imp = self.add_sets(exp_rsr1, imp_rsr2)
+            new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
+            for imp in temp_imp:
+                reduced = self.reduce_implication(imp)
+                if reduced != imp and reduced not in new_imp:
+                    new_imp.add(imp)
+            return new_exp, new_imp
+        elif not imp_rsr2:
+            temp_imp = self.add_sets(imp_rsr1, exp_rsr2)
+            new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
+            for imp in temp_imp:
+                reduced = self.reduce_implication(imp)
+                if reduced != imp and reduced not in new_imp:
+                    new_imp.add(imp)
+            return new_exp, new_imp
+        elif imp_rsr1 and imp_rsr2:
+            temp_imp = self.add_sets(exp_rsr1, imp_rsr2).union(self.add_sets(imp_rsr1, exp_rsr2).union(self.add_sets(imp_rsr1, imp_rsr2)))
+            new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
+            for imp in temp_imp:
+                reduced = self.reduce_implication(imp)
+                if reduced != imp and reduced not in new_imp:
+                    new_imp.add(imp)
+            return new_exp, self.minimal_by_reflexive_path(new_imp)
+        
+    def add_sets(self, set1, set2):
             new_set = set()
             set_pairs_1, set_pairs_2 = [cindex_to_pair(cand) for cand in set1], [cindex_to_pair(cand) for cand in set2]
             for pair1 in set_pairs_1:
@@ -101,18 +130,68 @@ class ImplicationFrame(ImplicationSpace):
                     new_q = tuple(a+b for a,b in zip(q1, q2))
                     new_set.add(pair_to_cindex((tuple_to_index(new_p),tuple_to_index(new_q))))
             return new_set
+    
+    def minimal_by_reflexive_path(self, imps):
+        """
+        return a set of implications in imps that have no reflexive sub-part yielding another element in imps.
+        """
+        # generate all reflexive implications up to the max tuple size in imps
+        # determine max multiset size among all implications
+        max_len = 0
+        for cand in imps:
+            p_idx, q_idx = cindex_to_pair(cand)
+            p = index_to_tuple(p_idx, self.num_bearers)
+            q = index_to_tuple(q_idx, self.num_bearers)
+            max_len = max(max_len, sum(p), sum(q))
+        # build reflexive set: all t|~t with sum(counts) <= max_len
+        reflexives = set()
+        for counts in product(range(max_len+1), repeat=self.num_bearers):
+            if sum(counts) <= max_len:
+                idx = pair_to_cindex((tuple_to_index(counts), tuple_to_index(counts)))
+                reflexives.add(idx)
+        # remove the empty reflexive implication (all-zero multiset)
+        reflexives.discard(0)
+        minimal_set = set()
         
-        new_exp = add_sets(exp_rsr1, exp_rsr2)
+        for cand in imps:
+            exclude = False
+            for r in reflexives:
+                # subtract reflexive part r from cand
+                cp = cindex_to_pair(cand)
+                rp = cindex_to_pair(r)
+                p_cand = index_to_tuple(cp[0], self.num_bearers)
+                q_cand = index_to_tuple(cp[1], self.num_bearers)
+                p_ref = index_to_tuple(rp[0], self.num_bearers)
+                if any(pr > pc for pc, pr in zip(p_cand, p_ref)) or any(pr > qc for qc, pr in zip(q_cand, p_ref)):
+                    continue
+                new_p = tuple(pc - pr for pc, pr in zip(p_cand, p_ref))
+                new_q = tuple(qc - pr for qc, pr in zip(q_cand, p_ref))
+                new_idx = pair_to_cindex((tuple_to_index(new_p), tuple_to_index(new_q)))
+                if new_idx in imps:
+                    exclude = True
+                    break
 
-        if not imp_rsr1 and not imp_rsr2:
-            return new_exp, set()
-        elif not imp_rsr1:
-            return new_exp, add_sets(exp_rsr1, imp_rsr2)
-        elif not imp_rsr2:
-            return new_exp, add_sets(imp_rsr1, exp_rsr2)
-        elif imp_rsr1 and imp_rsr2:
-            return new_exp, add_sets(exp_rsr1, imp_rsr2).union(add_sets(imp_rsr1, exp_rsr2).union(add_sets(imp_rsr1, imp_rsr2)))
-        
+            if not exclude:
+                minimal_set.add(cand)
+        return minimal_set
+    
+    def reduce_implication(self, candidate):
+        if isinstance(candidate, str):
+            return self.reduce_implication(implication_to_pair(candidate, self.num_bearers))
+        if isinstance(candidate, int):
+            # convert cindex to pair
+            return self.reduce_implication(cindex_to_pair(candidate))
+        if isinstance(candidate, tuple):
+            # remove common bearers from both sides
+            p_idx, q_idx = candidate
+            p = index_to_tuple(p_idx, self.num_bearers)
+            q = index_to_tuple(q_idx, self.num_bearers)
+            # compute reduced sides by subtracting the multiset intersection
+            common = tuple(min(pi, qi) for pi, qi in zip(p, q))
+            new_p = tuple(pi - ci for pi, ci in zip(p, common))
+            new_q = tuple(qi - ci for qi, ci in zip(q, common))
+            return pair_to_cindex((tuple_to_index(new_p), tuple_to_index(new_q)))
+               
     def RSR(self, candidates):
         if self.containment:
             print("RSR for stronger-than-reflexive not implemented yet")
@@ -124,9 +203,9 @@ class ImplicationFrame(ImplicationSpace):
         else:
             rsrs = [self.RSR(candidate) for candidate in candidates]
 
-            exp_lists = [e for e, _ in rsrs]
-            if exp_lists:
-                common = set(exp_lists[0]).intersection(*exp_lists[1:])
+            exps = [e for e, _ in rsrs]
+            if exps:
+                common = set(exps[0]).intersection(*exps[1:])
                 exp_rsr = set(common)
             else:
                 exp_rsr = set()
