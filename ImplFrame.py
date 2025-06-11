@@ -123,7 +123,7 @@ class ImplicationFrame(ImplicationSpace):
             return self._RSR(candidates)      
         else:
             rsrs = [self.RSR(candidate) for candidate in candidates]
-            #print(rsrs)
+
             exp_lists = [e for e, _ in rsrs]
             if exp_lists:
                 common = set(exp_lists[0]).intersection(*exp_lists[1:])
