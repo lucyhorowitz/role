@@ -86,13 +86,67 @@ class ImplicationFrame(ImplicationSpace):
         if isinstance(candidate, int):
             return self.is_by_containment(cindex_to_pair(candidate))
 
-    def RSR_single(self, candidate):
-        if isinstance(candidate, int):
+    def RSR(self, candidates):
+        if self.containment:
+            print("RSR for stronger-than-reflexive not implemented yet")
             return
-        if isinstance(candidate, tuple):
-            return
+        if isinstance(candidates, str) or isinstance(candidates, tuple) or isinstance(candidates, int):
+            return self._RSR(candidates)
+        else:
+            rsrs = [self._RSR(candidate) for candidate in candidates]
+            exp_lists = [e for e, _ in rsrs]
+            if exp_lists:
+                common = set(exp_lists[0]).intersection(*exp_lists[1:])
+                exp_rsr = list(common)
+            else:
+                exp_rsr = []
+            imp_rsrs = [i for _, i in rsrs if i is not None]
+            imp_rsr = imp_rsrs[0] if imp_rsrs and all(i == imp_rsrs[0] for i in imp_rsrs) else None
+            return exp_rsr, imp_rsr
+
+    def _RSR(self, candidate):
         if isinstance(candidate, str):
-            return
+            return self._RSR(implication_to_pair(candidate, self.num_bearers))
+        if isinstance(candidate, int):
+            return self._RSR(cindex_to_pair(candidate))
+        if isinstance(candidate, tuple) and len(candidate) == 2:
+            exp_rsr = []
+            p, q = index_to_tuple(candidate[0]), index_to_tuple(candidate[1])
+            for imp in self.implications:
+                temp = cindex_to_pair(imp)
+                r, s = index_to_tuple(temp[0]), index_to_tuple(temp[1])
+                new_p, new_q = tuple(x_i - y_i for x_i, y_i in zip(p, r)), tuple(x_i - y_i for x_i, y_i in zip(q, s))
+                exp_rsr.append(pair_to_cindex(tuple_to_index(new_p),tuple_to_index(new_q)))
+            if self.reflexivity:
+                new_p = tuple(max(q_i - p_i, 0) for p_i, q_i in zip(p, q))
+                new_q = tuple(max(p_i - q_i, 0) for p_i, q_i in zip(p, q))
+                imp_rsr = pair_to_cindex(tuple_to_index(new_p),tuple_to_index(new_q))
+        return exp_rsr, imp_rsr or None
+            
+    def in_RSR(self, candidate, rsr):
+        """
+        Computes whether `candidate` belongs to `rsr = (exp_rsr, imp_rsr)`. 
+        """
+        exp_rsr, imp_rsr = rsr
+        if isinstance(candidate, str):
+            idx = implication_to_cindex(candidate, self.num_bearers)
+            cand_pair = implication_to_pair(candidate, self.num_bearers)
+        elif isinstance(candidate, tuple):
+            cand_pair = candidate
+            idx = pair_to_cindex(candidate[0], candidate[1])
+        else:
+            idx = candidate
+            cand_pair = cindex_to_pair(candidate)
+        if idx in exp_rsr:
+            return True
+        if imp_rsr is None:
+            return False
+        imp_pair = cindex_to_pair(imp_rsr)
+        imp_p, imp_q = index_to_tuple(imp_pair[0]), index_to_tuple(imp_pair[1])
+        imp_diff = tuple(q - p for p, q in zip(imp_p, imp_q))
+        cand_p, cand_q = index_to_tuple(cand_pair[0]), index_to_tuple(cand_pair[1])
+        cand_diff = tuple(q - p for p, q in zip(cand_p, cand_q))
+        return cand_diff == imp_diff
 
     def pretty(self, bound = 2, padding: int = 0) -> str:
         """
