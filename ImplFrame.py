@@ -147,9 +147,9 @@ class ImplicationFrame(ImplicationSpace):
         if imp_rsr is None:
             return False
         imp_pair = cindex_to_pair(imp_rsr)
-        imp_p, imp_q = index_to_tuple(imp_pair[0]), index_to_tuple(imp_pair[1])
+        imp_p, imp_q = index_to_tuple(imp_pair[0], self.num_bearers), index_to_tuple(imp_pair[1], self.num_bearers)
         imp_diff = tuple(q - p for p, q in zip(imp_p, imp_q))
-        cand_p, cand_q = index_to_tuple(cand_pair[0]), index_to_tuple(cand_pair[1])
+        cand_p, cand_q = index_to_tuple(cand_pair[0], self.num_bearers), index_to_tuple(cand_pair[1], self.num_bearers)
         cand_diff = tuple(q - p for p, q in zip(cand_p, cand_q))
         return cand_diff == imp_diff
 
