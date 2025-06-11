@@ -86,6 +86,10 @@ class ImplicationFrame(ImplicationSpace):
         if isinstance(candidate, int):
             return self.is_by_containment(cindex_to_pair(candidate))
 
+    def otimes(self, rsr):
+        exp_rsr, imp_rsr = rsr
+        return
+
     def RSR(self, candidates):
         if self.containment:
             print("RSR for stronger-than-reflexive not implemented yet")
@@ -97,9 +101,9 @@ class ImplicationFrame(ImplicationSpace):
             exp_lists = [e for e, _ in rsrs]
             if exp_lists:
                 common = set(exp_lists[0]).intersection(*exp_lists[1:])
-                exp_rsr = list(common)
+                exp_rsr = set(common)
             else:
-                exp_rsr = []
+                exp_rsr = set()
             imp_rsrs = [i for _, i in rsrs if i is not None]
             imp_rsr = imp_rsrs[0] if imp_rsrs and all(i == imp_rsrs[0] for i in imp_rsrs) else None
             return exp_rsr, imp_rsr
@@ -110,18 +114,19 @@ class ImplicationFrame(ImplicationSpace):
         if isinstance(candidate, int):
             return self._RSR(cindex_to_pair(candidate))
         if isinstance(candidate, tuple) and len(candidate) == 2:
-            exp_rsr = []
-            p, q = index_to_tuple(candidate[0]), index_to_tuple(candidate[1])
+            exp_rsr = set()
+            p, q = index_to_tuple(candidate[0], self.num_bearers), index_to_tuple(candidate[1], self.num_bearers)
             for imp in self.implications:
                 temp = cindex_to_pair(imp)
-                r, s = index_to_tuple(temp[0]), index_to_tuple(temp[1])
-                new_p, new_q = tuple(x_i - y_i for x_i, y_i in zip(p, r)), tuple(x_i - y_i for x_i, y_i in zip(q, s))
-                exp_rsr.append(pair_to_cindex(tuple_to_index(new_p),tuple_to_index(new_q)))
+                r, s = index_to_tuple(temp[0], self.num_bearers), index_to_tuple(temp[1],self.num_bearers)
+                new_p, new_q = tuple(max(y_i - x_i,0) for x_i, y_i in zip(p, r)), tuple(max(y_i - x_i,0) for x_i, y_i in zip(q, s))
+                #print(f"{tuple_to_string(new_p)}|~{tuple_to_string(new_q)}")
+                exp_rsr.add(pair_to_cindex((tuple_to_index(new_p),tuple_to_index(new_q))))
             if self.reflexivity:
                 new_p = tuple(max(q_i - p_i, 0) for p_i, q_i in zip(p, q))
                 new_q = tuple(max(p_i - q_i, 0) for p_i, q_i in zip(p, q))
-                imp_rsr = pair_to_cindex(tuple_to_index(new_p),tuple_to_index(new_q))
-        return exp_rsr, imp_rsr or None
+                imp_rsr = pair_to_cindex((tuple_to_index(new_p),tuple_to_index(new_q)))
+        return exp_rsr, imp_rsr
             
     def in_RSR(self, candidate, rsr):
         """
@@ -177,8 +182,8 @@ class ImplicationFrame(ImplicationSpace):
 
         # symbols for implication reasons
         check_sym = '✔'
-        contain_sym = '✓'
-        reflex_sym = '◦'
+        reflex_sym = '✓'
+        contain_sym = '◦'
 
         # build table rows with grid lines
         labels_with_empty = [''] + labels
