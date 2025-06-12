@@ -85,7 +85,8 @@ class ImplicationFrame(ImplicationSpace):
             return self.is_by_containment(implication_to_pair(candidate,self.num_bearers))
         if isinstance(candidate, int):
             return self.is_by_containment(cindex_to_pair(candidate))
-
+    
+    #@profile 
     def otimes(self, rsr1, rsr2):
         exp_rsr1, imp_rsr1 = rsr1
         exp_rsr2, imp_rsr2 = rsr2
@@ -101,7 +102,7 @@ class ImplicationFrame(ImplicationSpace):
                 reduced = self.reduce_implication(imp)
                 if reduced != imp and reduced not in new_imp:
                     new_imp.add(imp)
-            return new_exp, new_imp
+            return new_exp, self.minimal_by_reflexive_path(new_imp)
         elif not imp_rsr2:
             temp_imp = self.add_sets(imp_rsr1, exp_rsr2)
             new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
@@ -109,7 +110,7 @@ class ImplicationFrame(ImplicationSpace):
                 reduced = self.reduce_implication(imp)
                 if reduced != imp and reduced not in new_imp:
                     new_imp.add(imp)
-            return new_exp, new_imp
+            return new_exp, self.minimal_by_reflexive_path(new_imp)
         elif imp_rsr1 and imp_rsr2:
             temp_imp = self.add_sets(exp_rsr1, imp_rsr2).union(self.add_sets(imp_rsr1, exp_rsr2).union(self.add_sets(imp_rsr1, imp_rsr2)))
             new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
@@ -119,6 +120,7 @@ class ImplicationFrame(ImplicationSpace):
                     new_imp.add(imp)
             return new_exp, self.minimal_by_reflexive_path(new_imp)
         
+    #@profile   
     def add_sets(self, set1, set2):
             new_set = set()
             set_pairs_1, set_pairs_2 = [cindex_to_pair(cand) for cand in set1], [cindex_to_pair(cand) for cand in set2]
