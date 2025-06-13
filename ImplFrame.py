@@ -86,7 +86,6 @@ class ImplicationFrame(ImplicationSpace):
         if isinstance(candidate, int):
             return self.is_by_containment(cindex_to_pair(candidate))
     
-    #@profile 
     def otimes(self, rsr1, rsr2):
         exp_rsr1, imp_rsr1 = rsr1
         exp_rsr2, imp_rsr2 = rsr2
@@ -195,6 +194,12 @@ class ImplicationFrame(ImplicationSpace):
             return pair_to_cindex((tuple_to_index(new_p), tuple_to_index(new_q)))
                
     def RSR(self, candidates):
+        """
+        Compute the RSR of either: 
+        a single candidate implication, represented as either a pair, string, or cindex 
+        OR 
+        a set of candidate implications, represented as a tuple (exp,imp) where exp and imp are both sets of pairs, strings, or cindices. 
+        """
         if self.containment:
             print("RSR for stronger-than-reflexive not implemented yet")
             return
@@ -203,17 +208,119 @@ class ImplicationFrame(ImplicationSpace):
         if isinstance(candidates, tuple) and not isinstance(candidates[0], set):
             return self._RSR(candidates)      
         else:
-            rsrs = [self.RSR(candidate) for candidate in candidates]
+            # In this case, candidates is (exp, imp). Recall from the Vault that we need to compute the intersection of RC(c) x R for each c in the union of the two sets.
+            exp, imp = candidates
+            rcs = [self.reflexive_completant(e) for e in exp | imp]
+            it = iter(rcs)
+            acc = next(it)
+            for x in it:
+                acc = self.intersection(acc, x)
+                if not acc:
+                    return (set(),set())
+            imp = set()
+            imp.add(acc)
+            return (set(), imp)
 
-            exps = [e for e, _ in rsrs]
-            if exps:
-                common = set(exps[0]).intersection(*exps[1:])
-                exp_rsr = set(common)
-            else:
-                exp_rsr = set()
-            imp_rsrs = [i for _, i in rsrs if i is not None]
-            imp_rsr = set.intersection(*imp_rsrs) if imp_rsrs else None
-            return exp_rsr, imp_rsr
+    def intersection(self, c1, c2):
+        if self.subpart(c1, c2):
+            return c2
+        if self.subpart(c2, c1):
+            return c1
+        if self.is_refl(c1) and self.is_refl(c2):
+            t1 = self.tupify(c1)
+            t2 = self.tupify(c2)
+            summed = tuple(a + b for a, b in zip(t1[0], t2[0]))
+            return pair_to_cindex((tuple_to_index(summed), tuple_to_index(summed)))
+        if not self.is_refl(c1) and not self.is_refl(c2):
+            c1dag = self.non_reflexive_subpart(c1)
+            c2dag = self.non_reflexive_subpart(c2)
+            if c1dag == c2dag and c1dag is not None:
+                t1 = self.tupify(c1)
+                t2 = self.tupify(c2)
+                print(t1)
+                print(t2)
+                max_1 = tuple(max(a, b) for a, b in zip(t1[0], t2[0]))
+                max_2 = tuple(max(a, b) for a, b in zip(t1[1], t2[1]))
+                # return the reflexive implication whose multiset is the coordinate‑wise max
+                return pair_to_cindex((tuple_to_index(max_1), tuple_to_index(max_2)))
+        return None
+
+    def leq(self, a, b):
+        """
+        Check if the difference b - a of the tuples (bearer multisets) a and b is well-defined.
+        In the event that this returns True, a is a subpart of b.
+        """
+        return all(bi - ai >= 0 for ai, bi in zip(a, b)) 
+        
+    def tupify(self, c):
+        if isinstance(c, int):
+            p_idx, q_idx = cindex_to_pair(c)
+        elif isinstance(c, str):
+            p_idx, q_idx = implication_to_pair(c, self.num_bearers)
+        else:
+            p_idx = c[0] 
+            q_idx = c[1]
+        return (index_to_tuple(p_idx, self.num_bearers), index_to_tuple(q_idx, self.num_bearers))
+        
+    def subpart(self, p, q):
+        if isinstance(p, int):
+            if isinstance(q,int):
+                return self.subpart(cindex_to_pair(p),cindex_to_pair(q))
+            if isinstance(q, str):
+                return self.subpart(cindex_to_pair(p), implication_to_pair(q, self.num_bearers))
+            if isinstance(q,tuple):
+                return self.subpart(cindex_to_pair(p), q)
+        if isinstance(p,str):
+            if isinstance(q,int):
+                return self.subpart(implication_to_pair(p, self.num_bearers), cindex_to_pair(q))
+            if isinstance(q, str):
+                return self.subpart(implication_to_pair(p, self.num_bearers), implication_to_pair(q, self.num_bearers))
+            if isinstance(q,tuple):
+                return self.subpart(implication_to_pair(p, self.num_bearers), q)
+        if isinstance(p, tuple):
+            if isinstance(q,int):
+                return self.subpart(p, cindex_to_pair(q))
+            if isinstance(q, str):
+                return self.subpart(p, implication_to_pair(q, self.num_bearers))
+            if isinstance(q,tuple):
+                p = self.tupify(p)
+                q = self.tupify(q)
+                return self.leq(p[0], q[0]) and self.leq(p[1], q[1])
+
+    def non_reflexive_subpart(self, p):
+        """
+        return the *non‑reflexive* remainder of an implication after stripping its
+        largest reflexive sub‑part (i.e. the multiset intersection of both sides).
+
+        the remainder is returned as a cindex.  
+        if removing the reflexive part yields a reflexive/empty implication,
+        we return ``None`` to signal that no proper non‑reflexive sub‑part exists.
+
+        accepts the usual formats: string, cindex int, or pair of idxs.
+        """
+        if isinstance(p, str):
+            return self.non_reflexive_subpart(implication_to_pair(p, self.num_bearers))
+        if isinstance(p, int):
+            return self.non_reflexive_subpart(cindex_to_pair(p))
+        if not isinstance(p, tuple) or len(p) != 2:
+            raise TypeError("expected implication as str, int cindex, or (idx,idx) tuple")
+
+        p_idx, q_idx = p
+        p_vec = index_to_tuple(p_idx, self.num_bearers)
+        q_vec = index_to_tuple(q_idx, self.num_bearers)
+
+        # largest reflexive sub‑part is the coordinate‑wise min
+        common = tuple(min(pi, qi) for pi, qi in zip(p_vec, q_vec))
+
+        # subtract the reflexive component
+        new_p = tuple(pi - ci for pi, ci in zip(p_vec, common))
+        new_q = tuple(qi - ci for qi, ci in zip(q_vec, common))
+
+        # if nothing non‑reflexive remains, signal with None
+        if new_p == new_q:
+            return None
+
+        return pair_to_cindex((tuple_to_index(new_p), tuple_to_index(new_q)))
 
     def _RSR(self, candidate):
         if isinstance(candidate, str):
@@ -222,45 +329,29 @@ class ImplicationFrame(ImplicationSpace):
             return self._RSR(cindex_to_pair(candidate))
         if isinstance(candidate, tuple) and len(candidate) == 2:
             exp_rsr = set()
+            imp_rsr = set()
             p, q = index_to_tuple(candidate[0], self.num_bearers), index_to_tuple(candidate[1], self.num_bearers)
             for imp in self.implications:
                 temp = cindex_to_pair(imp)
                 r, s = index_to_tuple(temp[0], self.num_bearers), index_to_tuple(temp[1],self.num_bearers)
-                new_p, new_q = tuple(max(y_i - x_i,0) for x_i, y_i in zip(p, r)), tuple(max(y_i - x_i,0) for x_i, y_i in zip(q, s))
-                exp_rsr.add(pair_to_cindex((tuple_to_index(new_p),tuple_to_index(new_q))))
+                if all(y_i - x_i >= 0 for x_i, y_i in zip(p, r)) and all(y_i - x_i >= 0 for x_i, y_i in zip(q, s)):
+                    new_p = tuple(y_i - x_i for x_i, y_i in zip(p, r))
+                    new_q = tuple(y_i - x_i for x_i, y_i in zip(q, s))
+                    exp_rsr.add(pair_to_cindex((tuple_to_index(new_p), tuple_to_index(new_q))))
             if self.reflexivity:
-                new_p = tuple(max(q_i - p_i, 0) for p_i, q_i in zip(p, q))
-                new_q = tuple(max(p_i - q_i, 0) for p_i, q_i in zip(p, q))
-                imp_rsr = pair_to_cindex((tuple_to_index(new_p),tuple_to_index(new_q)))
-        return exp_rsr, {imp_rsr}
+                imp_rsr.add(self.reflexive_completant(candidate))
+        return (exp_rsr, imp_rsr)
             
-    def in_RSR(self, candidate, rsr):
-        """
-        Computes whether `candidate` belongs to `rsr = (exp_rsr, imp_rsr)`. 
-        """
-        exp_rsr, imp_rsr = rsr
+    def reflexive_completant(self, candidate):
+        if isinstance(candidate, int):
+            return self.reflexive_completant(cindex_to_pair(candidate))
         if isinstance(candidate, str):
-            idx = implication_to_cindex(candidate, self.num_bearers)
-            cand_pair = implication_to_pair(candidate, self.num_bearers)
-        elif isinstance(candidate, tuple):
-            cand_pair = candidate
-            idx = pair_to_cindex(candidate[0], candidate[1])
-        else:
-            idx = candidate
-            cand_pair = cindex_to_pair(candidate)
-        if idx in exp_rsr:
-            return True
-        if imp_rsr is None:
-            return False
-        for imp in imp_rsr:
-            imp_pair = cindex_to_pair(imp)
-            imp_p, imp_q = index_to_tuple(imp_pair[0], self.num_bearers), index_to_tuple(imp_pair[1], self.num_bearers)
-            imp_diff = tuple(q - p for p, q in zip(imp_p, imp_q))
-            cand_p, cand_q = index_to_tuple(cand_pair[0], self.num_bearers), index_to_tuple(cand_pair[1], self.num_bearers)
-            cand_diff = tuple(q - p for p, q in zip(cand_p, cand_q))
-            if cand_diff == imp_diff:
-                return True
-        return False
+            return self.reflexive_completant(implication_to_pair(candidate,self.num_bearers))
+        if isinstance(candidate, tuple):
+            p, q = index_to_tuple(candidate[0], self.num_bearers), index_to_tuple(candidate[1], self.num_bearers)
+            new_p = tuple(max(q_i - p_i, 0) for p_i, q_i in zip(p, q))
+            new_q = tuple(max(p_i - q_i, 0) for p_i, q_i in zip(p, q))
+            return pair_to_cindex((tuple_to_index(new_p), tuple_to_index(new_q)))
     
     def is_refl(self, candidate):
         """

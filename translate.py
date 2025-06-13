@@ -48,7 +48,7 @@ def string_to_index(s, num_bearers):
     Converts a string representing a multiset of bearers to an integer index according to the pairing function,
     e,g. `"abb" -> 5` when `num_bearers = 2`.
     """
-    return  multidimensional_szudzik_pairing(*string_to_tuple(s, num_bearers))
+    return multidimensional_szudzik_pairing(*string_to_tuple(s, num_bearers))
 
 def index_to_tuple(i, num_bearers):
     """
@@ -111,3 +111,5 @@ def cindex_to_implication(i, num_bearers):
     e.g. `31 -> "abb |~ b"` when `num_bearers = 2`.
     """
     return pair_to_implication(cindex_to_pair(i), num_bearers)
+
+
