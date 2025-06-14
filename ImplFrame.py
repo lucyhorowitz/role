@@ -96,7 +96,13 @@ class ImplicationFrame(ImplicationSpace):
 
         return (new_exp, new_imp)
         
-    #@profile   
+
+    def adjunction(self, rsr1, rsr2):
+        r1 = self.RSR(rsr1)
+        r2 = self.RSR(rsr2)
+        ot = self.otimes(r1, r2)
+        return self.RSR(ot)
+
     def add_sets(self, set1, set2):
         new_set = set()
         set_pairs_1, set_pairs_2 = [cindex_to_pair(cand) for cand in set1], [cindex_to_pair(cand) for cand in set2]
@@ -188,6 +194,8 @@ class ImplicationFrame(ImplicationSpace):
             # In this case, candidates is (exp, imp). Recall from the Vault that we need to compute the intersection of RC(c) x R for each c in the union of the two sets.
             exp, imp = candidates
             rcs = [self.reflexive_completant(e) for e in exp | imp]
+            if not rcs: 
+                return (set(),set())
             it = iter(rcs)
             acc = next(it)
             for x in it:

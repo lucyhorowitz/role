@@ -26,13 +26,19 @@ if __name__ == "__main__":
     cand_pairs = list(itertools.combinations(cand_up_to, 2))  # unordered pairs
 
     print(f"\nall {len(cand_pairs)} pairs of candidate implications up to (aabb|~aabb):")
+    count = 0
     for lhs, rhs in cand_pairs:
         RSR1 = f1.RSR(lhs)
         RSR2 = f1.RSR(rhs)
-        ot = f1.otimes(RSR1, RSR2)
-        adj = f1.RSR(ot)
+        adj = f1.adjunction(RSR1, RSR2)
+        
         if adj[0] or adj[1]:
+            
+            count +=1
             print(f"{lhs} , {rhs} has adjunction {[cindex_to_implication(i,2) for i in adj[0]],[cindex_to_implication(i,2) for i in adj[1]]}")
+
+
+    print(f"There are {count} nontrivial adjunctions up to {len(cand_pairs)}")
     # ---------------------------------------------------------------------
 
     
