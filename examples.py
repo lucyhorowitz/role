@@ -11,6 +11,8 @@ if __name__ == "__main__":
     f1 = ImplicationFrame(2, chocolate, False, True)
     print(f"Chocolate frame:\n{f1}")
     RSR = f1.RSR("aa|~bb")
+
+    
  
     print(f"RSR(aa |~ bb): {RSR}")
     print(f"Translates to: {[cindex_to_implication(a,2) for a in RSR[0]]} with {[cindex_to_implication(thing,2) for thing in RSR[1]]} plus reflexive implications")

@@ -92,45 +92,22 @@ class ImplicationFrame(ImplicationSpace):
         
         new_exp = self.add_sets(exp_rsr1, exp_rsr2)
 
-        if not imp_rsr1 and not imp_rsr2:
-            return new_exp, set()
-        elif not imp_rsr1:
-            temp_imp = self.add_sets(exp_rsr1, imp_rsr2)
-            new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
-            for imp in temp_imp:
-                reduced = self.reduce_implication(imp)
-                if reduced != imp and reduced not in new_imp:
-                    new_imp.add(imp)
-            return new_exp, self.minimal_by_reflexive_path(new_imp)
-        elif not imp_rsr2:
-            temp_imp = self.add_sets(imp_rsr1, exp_rsr2)
-            new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
-            for imp in temp_imp:
-                reduced = self.reduce_implication(imp)
-                if reduced != imp and reduced not in new_imp:
-                    new_imp.add(imp)
-            return new_exp, self.minimal_by_reflexive_path(new_imp)
-        elif imp_rsr1 and imp_rsr2:
-            temp_imp = self.add_sets(exp_rsr1, imp_rsr2).union(self.add_sets(imp_rsr1, exp_rsr2).union(self.add_sets(imp_rsr1, imp_rsr2)))
-            new_imp = {imp for imp in temp_imp if self.reduce_implication(imp) == imp}
-            for imp in temp_imp:
-                reduced = self.reduce_implication(imp)
-                if reduced != imp and reduced not in new_imp:
-                    new_imp.add(imp)
-            return new_exp, self.minimal_by_reflexive_path(new_imp)
+        new_imp = self.add_sets(exp_rsr1, imp_rsr2) | self.add_sets(exp_rsr2, imp_rsr1) | self.add_sets(imp_rsr1, imp_rsr2)
+
+        return (new_exp, new_imp)
         
     #@profile   
     def add_sets(self, set1, set2):
-            new_set = set()
-            set_pairs_1, set_pairs_2 = [cindex_to_pair(cand) for cand in set1], [cindex_to_pair(cand) for cand in set2]
-            for pair1 in set_pairs_1:
-                for pair2 in set_pairs_2:
-                    p1, q1 = index_to_tuple(pair1[0], self.num_bearers), index_to_tuple(pair1[1], self.num_bearers)
-                    p2, q2 = index_to_tuple(pair2[0], self.num_bearers), index_to_tuple(pair2[1], self.num_bearers)
-                    new_p = tuple(a+b for a,b in zip(p1, p2))
-                    new_q = tuple(a+b for a,b in zip(q1, q2))
-                    new_set.add(pair_to_cindex((tuple_to_index(new_p),tuple_to_index(new_q))))
-            return new_set
+        new_set = set()
+        set_pairs_1, set_pairs_2 = [cindex_to_pair(cand) for cand in set1], [cindex_to_pair(cand) for cand in set2]
+        for pair1 in set_pairs_1:
+            for pair2 in set_pairs_2:
+                p1, q1 = index_to_tuple(pair1[0], self.num_bearers), index_to_tuple(pair1[1], self.num_bearers)
+                p2, q2 = index_to_tuple(pair2[0], self.num_bearers), index_to_tuple(pair2[1], self.num_bearers)
+                new_p = tuple(a+b for a,b in zip(p1, p2))
+                new_q = tuple(a+b for a,b in zip(q1, q2))
+                new_set.add(pair_to_cindex((tuple_to_index(new_p),tuple_to_index(new_q))))
+        return new_set
     
     def minimal_by_reflexive_path(self, imps):
         """
